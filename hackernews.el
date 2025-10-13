@@ -219,6 +219,13 @@ When nil, visited links are not persisted across sessions."
 Requires visual-fill-column package to be installed."
   :package-version '(hackernews . "0.8.0")
   :type 'boolean)
+
+(defcustom hackernews-enable-emojis nil
+  "Whether to display emojis in the interface.
+When non-nil, feed navigation buttons and comment counts will
+include emoji icons for visual enhancement."
+  :package-version '(hackernews . "0.8.0")
+  :type 'boolean)
 
 ;;;; Internal definitions
 
@@ -387,7 +394,7 @@ This is intended as an :annotation-function in
                  :notify (lambda (&rest _)
                            (hackernews-top-stories))
                  :help-echo "View top stories"
-                 " 🔥 Top ")
+                 (format " %sTop " (if hackernews-enable-emojis "🔥 " "")))
 
   (hackernews--insert-formatted-text " ")
 
@@ -395,7 +402,7 @@ This is intended as an :annotation-function in
                  :notify (lambda (&rest _)
                            (hackernews-new-stories))
                  :help-echo "View new stories"
-                 " 🆕 New ")
+                 (format " %sNew " (if hackernews-enable-emojis "🆕 " "")))
 
   (hackernews--insert-formatted-text " ")
 
@@ -403,7 +410,7 @@ This is intended as an :annotation-function in
                  :notify (lambda (&rest _)
                            (hackernews-best-stories))
                  :help-echo "View best stories"
-                 " ⭐ Best ")
+                 (format " %sBest " (if hackernews-enable-emojis "⭐ " "")))
 
   (hackernews--insert-formatted-text " ")
 
@@ -411,7 +418,7 @@ This is intended as an :annotation-function in
                  :notify (lambda (&rest _)
                            (hackernews-ask-stories))
                  :help-echo "View ask stories"
-                 " ❓ Ask ")
+                 (format " %sAsk " (if hackernews-enable-emojis "❓ " "")))
 
   (hackernews--insert-formatted-text " ")
 
@@ -419,7 +426,7 @@ This is intended as an :annotation-function in
                  :notify (lambda (&rest _)
                            (hackernews-show-stories))
                  :help-echo "View show stories"
-                 " 📺 Show ")
+                 (format " %sShow " (if hackernews-enable-emojis "📺 " "")))
 
   (hackernews--insert-formatted-text " ")
 
@@ -671,7 +678,8 @@ The item is displayed with widgets, colors, and separators."
                    :notify (lambda (&rest _)
                              (browse-url comments-url))
                    :help-echo (format "View comments: %s" comments-url)
-                   (format "💬 %d comment%s"
+                   (format "%s%d comment%s"
+                           (if hackernews-enable-emojis "💬 " "")
                            (or descendants 0)
                            (if (= (or descendants 0) 1) "" "s")))
 

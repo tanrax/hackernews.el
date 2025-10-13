@@ -158,6 +158,11 @@ The new widget-based interface includes several customization options:
   package to be installed.  This provides a more polished, centered
   reading experience.
 
+- `hackernews-enable-emojis` (default nil): Whether to display emojis
+  in the interface.  When non-nil, feed navigation buttons (Top, New,
+  Best, Ask, Show) and comment counts will include emoji icons for
+  visual enhancement.
+
 All `hackernews` buffers are displayed using the `switch-to-buffer`
 function, which replaces the current window's buffer.  This provides a
 full-screen experience for reading stories.
