@@ -4,7 +4,6 @@
 
 ;; Author: Lincoln de Sousa <lincoln@clarete.li>
 ;; Maintainer: Basil L. Contovounesios <basil@contovou.net>
-;; Contributor: Andros Fenollosa <hi@andros.dev>
 ;; Keywords: comm hypermedia news
 ;; Version: 0.8.0
 ;; Package-Requires: ((emacs "24.3"))
@@ -251,15 +250,13 @@ Requires visual-fill-column package to be installed."
 
 (defvar hackernews-mode-map
   (let ((map (make-sparse-keymap)))
+    (set-keymap-parent map widget-keymap)
     (define-key map "f"             #'hackernews-switch-feed)
     (define-key map "g"             #'hackernews-reload)
     (define-key map "m"             #'hackernews-load-more-stories)
     (define-key map "n"             #'hackernews-next-item)
     (define-key map "p"             #'hackernews-previous-item)
-    (define-key map "\t"            #'hackernews-next-comment)
-    (define-key map [backtab]       #'hackernews-previous-comment)
-    (define-key map [S-iso-lefttab] #'hackernews-previous-comment)
-    (define-key map [S-tab]         #'hackernews-previous-comment)
+    (define-key map "q"             #'quit-window)
     map)
   "Keymap used in hackernews buffer.")
 
@@ -371,7 +368,7 @@ This is intended as an :annotation-function in
   "Insert a horizontal separator line."
   (hackernews--insert-formatted-text "\n")
   (hackernews--insert-formatted-text (hackernews--string-separator) nil "#666666")
-  (hackernews--insert-formatted-text "\n"))
+  (hackernews--insert-formatted-text "\n\n"))
 
 (defun hackernews--insert-logo ()
   "Insert the Hacker News logo/header."
@@ -463,40 +460,31 @@ This is intended as an :annotation-function in
     (goto-char pos)
     (when msg (message "%s" msg))))
 
-(defun hackernews-next-item (&optional n)
-  "Move to Nth next story link (previous if N is negative).
-N defaults to 1."
+(defun hackernews-next-item ()
+  "Move to next story."
   (declare (modes hackernews-mode))
-  (interactive "p")
-  ;; N is kept optional for backward compatibility
-  (hackernews--forward-button (or n 1) 'hackernews-link))
+  (interactive)
+  (let ((separator-regex (concat "^" (regexp-quote (hackernews--string-separator)) "$")))
+    (if (search-forward-regexp separator-regex nil t)
+        (forward-line 2)
+      (message "No more stories"))))
 
-(defun hackernews-previous-item (&optional n)
-  "Move to Nth previous story link (next if N is negative).
-N defaults to 1."
-  (interactive "p")
-  (hackernews-next-item (- (or n 1))))
-
-(defun hackernews-next-comment (&optional n)
-  "Move to Nth next comments link (previous if N is negative).
-N defaults to 1."
+(defun hackernews-previous-item ()
+  "Move to previous story."
   (declare (modes hackernews-mode))
-  (interactive "p")
-  (hackernews--forward-button (or n 1) 'hackernews-comment-count))
-
-(defun hackernews-previous-comment (&optional n)
-  "Move to Nth previous comments link (next if N is negative).
-N defaults to 1."
-  (declare (modes hackernews-mode))
-  (interactive "p")
-  (hackernews-next-comment (- (or n 1))))
+  (interactive)
+  (let ((separator-regex (concat "^" (regexp-quote (hackernews--string-separator)) "$")))
+    (search-backward-regexp separator-regex nil t)
+    (unless (search-backward-regexp separator-regex nil t)
+      (goto-char (point-min)))
+    (forward-line 2)))
 
 (defun hackernews-first-item ()
   "Move point to first story link in hackernews buffer."
   (declare (modes hackernews-mode))
   (interactive)
   (goto-char (point-min))
-  (hackernews-next-item))
+  (widget-forward 1))
 
 ;;;; UI
 
@@ -651,7 +639,7 @@ This is for compatibility with various Emacs versions.
 
 (defun hackernews--render-item (item)
   "Render Hacker News ITEM in current buffer with improved UI.
-The item is displayed with widgets, colors, and separators similar to the Lobsters client."
+The item is displayed with widgets, colors, and separators."
   (let* ((id           (cdr (assq 'id          item)))
          (title        (cdr (assq 'title       item)))
          (score        (cdr (assq 'score       item)))
@@ -660,9 +648,6 @@ The item is displayed with widgets, colors, and separators similar to the Lobste
          (descendants  (cdr (assq 'descendants item)))
          (comments-url (hackernews--comments-url id)))
     (setq title (xml-substitute-special title))
-
-    ;; Add spacing between separator and title
-    (hackernews--insert-formatted-text "\n")
 
     ;; Title (make it a clickable widget)
     (widget-create 'push-button
@@ -716,27 +701,33 @@ The item is displayed with widgets, colors, and separators similar to the Lobste
 
 (defun hackernews--display-items ()
   "Render items associated with, and pop to, the current buffer."
-  ;; Temporarily disable read-only mode
-  (read-only-mode -1)
-  
+  ;; Switch to buffer first (like Lobsters)
+  (switch-to-buffer (current-buffer))
+
   (let* ((reg   (hackernews--get :register))
          (items (hackernews--get :items))
          (nitem (length items))
          (feed  (hackernews--get :feed))
          (feed-name (hackernews--feed-name feed))
-         (is-first-load (= (point-max) 1))
-         (inhibit-read-only t))
+         (is-first-load (= (point-max) 1)))
 
-    ;; Insert header if this is the first load
+    ;; Temporarily disable read-only mode
+    (read-only-mode -1)
+
+    ;; Insert header if this is the first load (OUTSIDE inhibit-read-only, like Lobsters)
     (when is-first-load
       (hackernews--insert-header feed-name))
 
-    ;; Render items
+    ;; Render items (OUTSIDE inhibit-read-only, like Lobsters)
     (run-hooks 'hackernews-before-render-hook)
     (save-excursion
       (goto-char (point-max))
       (mapc #'hackernews--render-item items))
     (run-hooks 'hackernews-after-render-hook)
+
+    ;; Set up the buffer with hackernews-mode (after inserting content)
+    (when is-first-load
+      (hackernews-mode))
 
     ;; Setup widgets
     (widget-setup)
@@ -752,15 +743,15 @@ The item is displayed with widgets, colors, and separators similar to the Lobste
           (widget-forward 1))
       (unless (or (<= nitem 0) hackernews-preserve-point)
         (goto-char (point-max))
-        (hackernews-previous-item nitem)))
+        (dotimes (_ nitem)
+          (hackernews-previous-item))))
 
     ;; Persist new offset
-    (setcar reg (+ (car reg) nitem)))
+    (setcar reg (+ (car reg) nitem))
 
-  ;; Show buffer in full window and re-enable read-only
-  (switch-to-buffer (current-buffer))
-  (read-only-mode 1)
-  (run-hooks 'hackernews-finalize-hook))
+    ;; Enable read-only mode AFTER all modifications are done
+    (read-only-mode 1)
+    (run-hooks 'hackernews-finalize-hook)))
 
 
 ;; TODO: Derive from `tabulated-list-mode'?
@@ -805,7 +796,9 @@ Official major mode key bindings:
              (require 'visual-fill-column nil t))
     (setq-local visual-fill-column-center-text t)
     (setq-local visual-fill-column-width hackernews-display-width)
-    (visual-fill-column-mode 1)))
+    (visual-fill-column-mode 1))
+  ;; Activate the keymap
+  (use-local-map hackernews-mode-map))
 
 
 (defun hackernews--ensure-major-mode ()
@@ -880,9 +873,16 @@ rendered at the end of the hackernews buffer."
 
     (with-current-buffer (get-buffer-create (format "*hackernews %s*" name))
       (unless append
+        ;; Kill local variables BEFORE disabling read-only (like Lobsters)
+        (kill-all-local-variables)
+
+        ;; Temporarily disable read-only mode
+        (read-only-mode -1)
+
+        ;; Clear buffer
         (let ((inhibit-read-only t))
           (erase-buffer))
-        (hackernews-mode))
+        (remove-overlays))
 
       (hackernews--put :feed     feed)
       (hackernews--put :register (cons offset ids))
