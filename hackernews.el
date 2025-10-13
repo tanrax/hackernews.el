@@ -661,37 +661,24 @@ The item is displayed with widgets, colors, and separators."
 
     (hackernews--insert-formatted-text "\n")
 
-    ;; Score, comments, and author info
+    ;; Score, comments button, and author info
     (hackernews--insert-formatted-text "  ")
     (hackernews--insert-formatted-text (format "↑%d" (or score 0)) nil "#ff6600")
     (hackernews--insert-formatted-text " | ")
-    (hackernews--insert-formatted-text
-     (format "%d comment%s"
-             (or descendants 0)
-             (if (= (or descendants 0) 1) "" "s"))
-     nil "#666666")
+
+    ;; Comments as clickable button
+    (widget-create 'push-button
+                   :notify (lambda (&rest _)
+                             (browse-url comments-url))
+                   :help-echo (format "View comments: %s" comments-url)
+                   (format "💬 %d comment%s"
+                           (or descendants 0)
+                           (if (= (or descendants 0) 1) "" "s")))
 
     ;; Author
     (when by
       (hackernews--insert-formatted-text " | by ")
       (hackernews--insert-formatted-text by nil "#0066cc"))
-
-    ;; Comments and URL buttons
-    (hackernews--insert-formatted-text "\n  ")
-    (widget-create 'push-button
-                   :notify (lambda (&rest _)
-                             (funcall hackernews-internal-browser-function comments-url))
-                   :help-echo (format "View comments: %s" comments-url)
-                   " 💬 Comments ")
-
-    ;; URL link (if different from comments)
-    (when item-url
-      (hackernews--insert-formatted-text " ")
-      (widget-create 'push-button
-                     :notify (lambda (&rest _)
-                               (browse-url item-url))
-                     :help-echo (format "Open link: %s" item-url)
-                     " 🔗 Link "))
 
     (hackernews--insert-formatted-text "\n")
     (hackernews--insert-separator)))
