@@ -1,11 +1,13 @@
-;;; hackernews.el --- Hacker News Client for Emacs -*- lexical-binding: t -*-
+;;; hackernews.el --- Hacker News Client -*- lexical-binding: t -*-
 
 ;; Copyright (C) 2012-2025 The Hackernews.el Authors
 
 ;; Author: Lincoln de Sousa <lincoln@clarete.li>
 ;; Maintainer: Basil L. Contovounesios <basil@contovou.net>
+;; Contributor: Andros Fenollosa <hi@andros.dev>
 ;; Keywords: comm hypermedia news
-;; Version: 0.7.1
+;; Version: 0.8.0
+;; Package-Requires: ((emacs "24.3"))
 ;; URL: https://github.com/clarete/hackernews.el
 
 ;; This program is free software; you can redistribute it and/or modify
@@ -33,6 +35,9 @@
 (require 'cus-edit)
 (require 'format-spec)
 (require 'url)
+(require 'widget)
+(require 'wid-edit)
+(require 'cl-lib)
 
 (eval-when-compile
   ;; - 24.3 started complaining about unknown `declare' props.
@@ -204,6 +209,17 @@ face is changed to `hackernews-link-visited'."
 When nil, visited links are not persisted across sessions."
   :package-version '(hackernews . "0.5.0")
   :type '(choice file (const :tag "None" nil)))
+
+(defcustom hackernews-display-width 80
+  "Maximum width for displaying hackernews content."
+  :package-version '(hackernews . "0.8.0")
+  :type 'integer)
+
+(defcustom hackernews-enable-visual-fill-column t
+  "Whether to enable visual-fill-column-mode for centered display.
+Requires visual-fill-column package to be installed."
+  :package-version '(hackernews . "0.8.0")
+  :type 'boolean)
 
 ;;;; Internal definitions
 
@@ -326,6 +342,108 @@ This is intended as an :annotation-function in
   (let ((name (hackernews--feed-name feed)))
     (and name (concat " - " name))))
 
+
+;;;; UI Helpers
+
+(defconst hackernews--separator-char ?-
+  "Character used for horizontal separators.")
+
+(defun hackernews--insert-formatted-text (text &optional size font-color background-color)
+  "Insert TEXT with optional formatting SIZE, FONT-COLOR, and BACKGROUND-COLOR."
+  (let ((start (point)))
+    (insert text)
+    (let ((end (point))
+          (props (list)))
+      (when size
+        (push `(:height ,size) props))
+      (when font-color
+        (push `(:foreground ,font-color) props))
+      (when background-color
+        (push `(:background ,background-color) props))
+      (when props
+        (put-text-property start end 'face (apply #'append props))))))
+
+(defun hackernews--string-separator ()
+  "Return a string with the separator character."
+  (make-string hackernews-display-width hackernews--separator-char))
+
+(defun hackernews--insert-separator ()
+  "Insert a horizontal separator line."
+  (hackernews--insert-formatted-text "\n")
+  (hackernews--insert-formatted-text (hackernews--string-separator) nil "#666666")
+  (hackernews--insert-formatted-text "\n"))
+
+(defun hackernews--insert-logo ()
+  "Insert the Hacker News logo/header."
+  (hackernews--insert-formatted-text "\n")
+  (hackernews--insert-formatted-text "Y " 1.5 "#ff6600")
+  (hackernews--insert-formatted-text "Hacker News" 1.3 "#ff6600")
+  (hackernews--insert-formatted-text "\n\n"))
+
+
+(defun hackernews--insert-header (feed-name)
+  "Insert the header for FEED-NAME."
+  (hackernews--insert-logo)
+
+  ;; Feed navigation buttons
+  (widget-create 'push-button
+                 :notify (lambda (&rest _)
+                           (hackernews-top-stories))
+                 :help-echo "View top stories"
+                 " 🔥 Top ")
+
+  (hackernews--insert-formatted-text " ")
+
+  (widget-create 'push-button
+                 :notify (lambda (&rest _)
+                           (hackernews-new-stories))
+                 :help-echo "View new stories"
+                 " 🆕 New ")
+
+  (hackernews--insert-formatted-text " ")
+
+  (widget-create 'push-button
+                 :notify (lambda (&rest _)
+                           (hackernews-best-stories))
+                 :help-echo "View best stories"
+                 " ⭐ Best ")
+
+  (hackernews--insert-formatted-text " ")
+
+  (widget-create 'push-button
+                 :notify (lambda (&rest _)
+                           (hackernews-ask-stories))
+                 :help-echo "View ask stories"
+                 " ❓ Ask ")
+
+  (hackernews--insert-formatted-text " ")
+
+  (widget-create 'push-button
+                 :notify (lambda (&rest _)
+                           (hackernews-show-stories))
+                 :help-echo "View show stories"
+                 " 📺 Show ")
+
+  (hackernews--insert-formatted-text " ")
+
+  (widget-create 'push-button
+                 :notify (lambda (&rest _)
+                           (hackernews-reload))
+                 :help-echo "Refresh current feed"
+                 " ↻ Refresh ")
+
+  ;; Current feed indicator
+  (hackernews--insert-formatted-text (format "\n\nShowing: %s\n" feed-name)
+                                     nil "#ff6600")
+
+  ;; Keyboard shortcuts help
+  (hackernews--insert-formatted-text "Keyboard: (n) Next | (p) Previous | (g) Refresh | (q) Quit\n")
+
+  (hackernews--insert-separator))
+
+
+
+
 ;;;; Motion
 
 (defun hackernews--forward-button (n type)
@@ -532,43 +650,86 @@ This is for compatibility with various Emacs versions.
 (autoload 'xml-substitute-special "xml")
 
 (defun hackernews--render-item (item)
-  "Render Hacker News ITEM in current buffer.
-The user options `hackernews-score-format',
-`hackernews-title-format' and `hackernews-comments-format'
-control how each of the ITEM's score, title and comments count
-are formatted, respectively.  These components are then combined
-according to `hackernews-item-format'.  The title and comments
-counts are rendered as text buttons which are hyperlinked to
-their respective URLs."
+  "Render Hacker News ITEM in current buffer with improved UI.
+The item is displayed with widgets, colors, and separators similar to the Lobsters client."
   (let* ((id           (cdr (assq 'id          item)))
          (title        (cdr (assq 'title       item)))
          (score        (cdr (assq 'score       item)))
+         (by           (cdr (assq 'by          item)))
          (item-url     (cdr (assq 'url         item)))
          (descendants  (cdr (assq 'descendants item)))
          (comments-url (hackernews--comments-url id)))
     (setq title (xml-substitute-special title))
-    (insert
-     (format-spec hackernews-item-format
-                  `((?s . ,(propertize (format hackernews-score-format score)
-                                       'font-lock-face 'hackernews-score))
-                    (?t . ,(hackernews--button-string
-                            'hackernews-link
-                            (format hackernews-title-format title)
-                            (or item-url comments-url)
-                            id))
-                    (?c . ,(hackernews--button-string
-                            'hackernews-comment-count
-                            (format hackernews-comments-format
-                                    (or descendants 0))
-                            comments-url
-                            id)))))))
+
+    ;; Add spacing between separator and title
+    (hackernews--insert-formatted-text "\n")
+
+    ;; Title (make it a clickable widget)
+    (widget-create 'push-button
+                   :notify (lambda (&rest _)
+                             (browse-url (or item-url comments-url)))
+                   :help-echo (if item-url
+                                  (format "Open: %s" item-url)
+                                "No URL")
+                   :format "%[%v%]"
+                   title)
+
+    (hackernews--insert-formatted-text "\n")
+
+    ;; Score, comments, and author info
+    (hackernews--insert-formatted-text "  ")
+    (hackernews--insert-formatted-text (format "↑%d" (or score 0)) nil "#ff6600")
+    (hackernews--insert-formatted-text " | ")
+    (hackernews--insert-formatted-text
+     (format "%d comment%s"
+             (or descendants 0)
+             (if (= (or descendants 0) 1) "" "s"))
+     nil "#666666")
+
+    ;; Author
+    (when by
+      (hackernews--insert-formatted-text " | by ")
+      (hackernews--insert-formatted-text by nil "#0066cc"))
+
+    ;; Comments and URL buttons
+    (hackernews--insert-formatted-text "\n  ")
+    (widget-create 'push-button
+                   :notify (lambda (&rest _)
+                             (funcall hackernews-internal-browser-function comments-url))
+                   :help-echo (format "View comments: %s" comments-url)
+                   " 💬 Comments ")
+
+    ;; URL link (if different from comments)
+    (when item-url
+      (hackernews--insert-formatted-text " ")
+      (widget-create 'push-button
+                     :notify (lambda (&rest _)
+                               (browse-url item-url))
+                     :help-echo (format "Open link: %s" item-url)
+                     " 🔗 Link "))
+
+    (hackernews--insert-formatted-text "\n")
+    (hackernews--insert-separator)))
+
+
+
 
 (defun hackernews--display-items ()
   "Render items associated with, and pop to, the current buffer."
+  ;; Temporarily disable read-only mode
+  (read-only-mode -1)
+  
   (let* ((reg   (hackernews--get :register))
          (items (hackernews--get :items))
          (nitem (length items))
+         (feed  (hackernews--get :feed))
+         (feed-name (hackernews--feed-name feed))
+         (is-first-load (= (point-max) 1))
          (inhibit-read-only t))
+
+    ;; Insert header if this is the first load
+    (when is-first-load
+      (hackernews--insert-header feed-name))
 
     ;; Render items
     (run-hooks 'hackernews-before-render-hook)
@@ -577,16 +738,30 @@ their respective URLs."
       (mapc #'hackernews--render-item items))
     (run-hooks 'hackernews-after-render-hook)
 
+    ;; Setup widgets
+    (widget-setup)
+
+    ;; Disable line numbers
+    (when (fboundp 'display-line-numbers-mode)
+      (display-line-numbers-mode 0))
+
     ;; Adjust point
-    (unless (or (<= nitem 0) hackernews-preserve-point)
-      (goto-char (point-max))
-      (hackernews-previous-item nitem))
+    (if is-first-load
+        (progn
+          (goto-char (point-min))
+          (widget-forward 1))
+      (unless (or (<= nitem 0) hackernews-preserve-point)
+        (goto-char (point-max))
+        (hackernews-previous-item nitem)))
 
     ;; Persist new offset
     (setcar reg (+ (car reg) nitem)))
 
-  (pop-to-buffer (current-buffer) '(() (category . hackernews)))
+  ;; Show buffer in full window and re-enable read-only
+  (switch-to-buffer (current-buffer))
+  (read-only-mode 1)
   (run-hooks 'hackernews-finalize-hook))
+
 
 ;; TODO: Derive from `tabulated-list-mode'?
 (define-derived-mode hackernews-mode special-mode "HN"
@@ -624,7 +799,14 @@ Official major mode key bindings:
   :interactive nil
   (setq hackernews--feed-state ())
   (setq truncate-lines t)
-  (buffer-disable-undo))
+  (buffer-disable-undo)
+  ;; Enable visual-fill-column if available and configured
+  (when (and hackernews-enable-visual-fill-column
+             (require 'visual-fill-column nil t))
+    (setq-local visual-fill-column-center-text t)
+    (setq-local visual-fill-column-width hackernews-display-width)
+    (visual-fill-column-mode 1)))
+
 
 (defun hackernews--ensure-major-mode ()
   "Barf if current buffer is not derived from `hackernews-mode'."
