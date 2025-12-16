@@ -4,7 +4,7 @@ appreciation for their public spirit, we list here in alphabetical
 order a condensed list of their contributions.
 
 Andros Fenollosa: changed hackernews.el to add widget-based UI with
-  visual-fill-column support and Lobsters-inspired design
+  visual-fill-column support and modern design
 
 Basil L. Contovounesios: wrote .dir-locals.el
   .github/workflows/build.yml

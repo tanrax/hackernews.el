@@ -4,10 +4,9 @@
 
 ;; Author: Lincoln de Sousa <lincoln@clarete.li>
 ;; Maintainer: Basil L. Contovounesios <basil@contovou.net>
-;; Contributor: Andros Fenollosa <hi@andros.dev>
 ;; Keywords: comm hypermedia news
 ;; Version: 0.9.0
-;; Package-Requires: ((emacs "24.3"))
+;; Package-Requires: ((emacs "24.3") (visual-fill-column "2.2"))
 ;; URL: https://github.com/clarete/hackernews.el
 
 ;; This program is free software; you can redistribute it and/or modify
@@ -868,6 +867,14 @@ The rendering style is determined by `hackernews-ui-style'."
     ;; Setup widgets for modern UI
     (when is-modern
       (widget-setup))
+
+    ;; Enable visual-fill-column for modern UI
+    (when is-modern
+      (when (and (require 'visual-fill-column nil t)
+                 (boundp 'visual-fill-column-width))
+        (setq-local visual-fill-column-width hackernews-display-width)
+        (setq-local visual-fill-column-center-text t)
+        (visual-fill-column-mode 1)))
 
     ;; Disable line numbers
     (when (fboundp 'display-line-numbers-mode)
