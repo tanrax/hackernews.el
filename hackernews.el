@@ -510,28 +510,25 @@ N defaults to 1."
     (if (< count 0)
         (hackernews-previous-item (- count))
       (dotimes (_ count)
-        (let* ((current-id (get-text-property (point) 'hackernews-item-id))
-               (pos (point))
-               found)
-          ;; If we're in an item, first skip to the end of it
-          (when current-id
-            (setq pos (or (next-single-property-change pos 'hackernews-item-id)
-                          (point-max))))
-          ;; Now find the next item
-          (setq pos (next-single-property-change pos 'hackernews-item-id))
-          (if pos
-              (let ((_target-id (get-text-property pos 'hackernews-item-id))
-                    (end-pos (or (next-single-property-change pos 'hackernews-item-id)
-                                 (point-max))))
-                ;; Search for the first widget within this item's range
+        (if (eq hackernews-ui-style 'modern)
+            ;; Modern UI: search for separator lines
+            (let ((separator-regex (concat "^" (regexp-quote (hackernews--string-separator)) "$")))
+              (if (search-forward-regexp separator-regex nil t)
+                  (progn
+                    (forward-line 2)  ; Skip blank line to reach title
+                    (beginning-of-line)
+                    (recenter))  ; Center cursor vertically
+                (message "No more stories")))
+          ;; Classic UI: use text properties
+          (let* ((current-id (get-text-property (point) 'hackernews-item-id))
+                 (pos (point)))
+            (when current-id
+              (setq pos (or (next-single-property-change pos 'hackernews-item-id)
+                            (point-max))))
+            (setq pos (next-single-property-change pos 'hackernews-item-id))
+            (if pos
                 (goto-char pos)
-                (while (and (< (point) end-pos) (not found))
-                  (if (widget-at)
-                      (setq found t)
-                    (forward-char 1)))
-                (unless found
-                  (goto-char pos)))
-            (message "No more stories")))))))
+              (message "No more stories"))))))))
 
 (defun hackernews-previous-item (&optional n)
   "Move to Nth previous story (next if N is negative).
@@ -542,34 +539,30 @@ N defaults to 1."
     (if (< count 0)
         (hackernews-next-item (- count))
       (dotimes (_ count)
-        (let* ((current-id (get-text-property (point) 'hackernews-item-id))
-               (pos (point))
-               found)
-          ;; If we're in an item, first skip to the beginning of it
-          (when current-id
-            (setq pos (or (previous-single-property-change pos 'hackernews-item-id)
-                          (point-min)))
-            ;; If we found the beginning of current item, look for previous
-            (when (and pos (equal (get-text-property pos 'hackernews-item-id) current-id))
-              (setq pos (previous-single-property-change pos 'hackernews-item-id))))
-          ;; Now find the previous item
-          (unless (and current-id (> pos (point-min)))
-            (setq pos (previous-single-property-change pos 'hackernews-item-id)))
-          (if (and pos (> pos (point-min)))
-              (let ((_target-id (get-text-property pos 'hackernews-item-id))
-                    (end-pos (or (next-single-property-change pos 'hackernews-item-id)
-                                 (point-max))))
-                ;; Search for the first widget within this item's range
+        (if (eq hackernews-ui-style 'modern)
+            ;; Modern UI: search for separator lines
+            (let ((separator-regex (concat "^" (regexp-quote (hackernews--string-separator)) "$")))
+              (search-backward-regexp separator-regex nil t)
+              (unless (search-backward-regexp separator-regex nil t)
+                (goto-char (point-min)))
+              (forward-line 2)  ; Skip blank line to reach title
+              (beginning-of-line)
+              (recenter))  ; Center cursor vertically
+          ;; Classic UI: use text properties
+          (let* ((current-id (get-text-property (point) 'hackernews-item-id))
+                 (pos (point)))
+            (when current-id
+              (setq pos (or (previous-single-property-change pos 'hackernews-item-id)
+                            (point-min)))
+              (when (and pos (equal (get-text-property pos 'hackernews-item-id) current-id))
+                (setq pos (previous-single-property-change pos 'hackernews-item-id))))
+            (unless (and current-id (> pos (point-min)))
+              (setq pos (previous-single-property-change pos 'hackernews-item-id)))
+            (if (and pos (> pos (point-min)))
                 (goto-char pos)
-                (while (and (< (point) end-pos) (not found))
-                  (if (widget-at)
-                      (setq found t)
-                    (forward-char 1)))
-                (unless found
-                  (goto-char pos)))
-            (message "No previous stories")
-            (goto-char (point-min))
-            (hackernews-next-item)))))))
+              (message "No previous stories")
+              (goto-char (point-min))
+              (hackernews-next-item))))))))
 
 (defun hackernews-first-item ()
   "Move point to first story link in hackernews buffer."
@@ -864,8 +857,13 @@ The rendering style is determined by `hackernews-ui-style'."
       (mapc #'hackernews--render-item items))
     (run-hooks 'hackernews-after-render-hook)
 
+    ;; Activate hackernews-mode
+    (hackernews-mode)
+
     ;; Setup widgets for modern UI
     (when is-modern
+      ;; Set widget-keymap as parent for proper widget interaction in read-only buffer
+      (set-keymap-parent hackernews-mode-map widget-keymap)
       (widget-setup))
 
     ;; Enable visual-fill-column for modern UI
@@ -895,15 +893,19 @@ The rendering style is determined by `hackernews-ui-style'."
       (hackernews-previous-item nitem)))
 
     ;; Persist new offset
-    (setcar reg (+ (car reg) nitem))
+    (setcar reg (+ (car reg) nitem)))
 
-    ;; Display buffer with appropriate action based on UI style
-    (if is-modern
-        ;; Modern UI: occupy full window
-        (pop-to-buffer (current-buffer) '((display-buffer-same-window)))
-      ;; Classic UI: default behavior (partial window)
-      (pop-to-buffer (current-buffer) '(() (category . hackernews))))
-    (run-hooks 'hackernews-finalize-hook)))
+  ;; Enable read-only mode after all modifications
+  (when (eq hackernews-ui-style 'modern)
+    (read-only-mode 1))
+
+  ;; Display buffer with appropriate action based on UI style
+  (if (eq hackernews-ui-style 'modern)
+      ;; Modern UI: occupy full window
+      (pop-to-buffer (current-buffer) '((display-buffer-same-window)))
+    ;; Classic UI: default behavior (partial window)
+    (pop-to-buffer (current-buffer) '(() (category . hackernews))))
+  (run-hooks 'hackernews-finalize-hook))
 
 
 ;; TODO: Derive from `tabulated-list-mode'?
