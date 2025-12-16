@@ -407,14 +407,14 @@ This is intended as an :annotation-function in
   "Insert a horizontal separator line using modern UI style."
   (insert "\n")
   (insert (propertize (hackernews--string-separator)
-                      'font-lock-face 'hackernews-separator))
+                      'face 'hackernews-separator))
   (insert "\n\n"))
 
 (defun hackernews--insert-logo ()
   "Insert the Hacker News logo/header in modern UI style."
   (insert "\n")
-  (insert (propertize "Y " 'font-lock-face 'hackernews-logo))
-  (insert (propertize "Hacker News" 'font-lock-face 'hackernews-title-text))
+  (insert (propertize "Y " 'face 'hackernews-logo))
+  (insert (propertize "Hacker News" 'face 'hackernews-title-text))
   (insert "\n\n"))
 
 
@@ -472,7 +472,7 @@ This is intended as an :annotation-function in
   ;; Current feed indicator
   (insert "\n\n")
   (insert (propertize (format "Showing: %s\n" feed-name)
-                      'font-lock-face 'hackernews-feed-indicator))
+                      'face 'hackernews-feed-indicator))
 
   ;; Keyboard shortcuts help
   (insert "Keyboard: (n) Next | (p) Previous | (g) Refresh | (q) Quit\n")
@@ -689,7 +689,7 @@ If UNVISIT is non-nil, mark BUTTON as unvisited."
          (inhibit-read-only t))
     (puthash id val table)
     (when face
-      (button-put button 'font-lock-face (button-type-get type face))))
+      (button-put button 'face (button-type-get type face))))
   (funcall fn (button-get button 'shr-url)))
 
 (defun hackernews-browse-url-action (button)
@@ -738,7 +738,7 @@ This is for compatibility with various Emacs versions.
                                           'hackernews-visited-face
                                         'hackernews-face))))
     (hackernews--text-button label nil
-                             'type type 'font-lock-face face
+                             'type type 'face face
                              'id id 'help-echo url 'shr-url url)))
 
 (autoload 'xml-substitute-special "xml")
@@ -763,7 +763,7 @@ their respective URLs."
     (insert
      (format-spec hackernews-item-format
                   `((?s . ,(propertize (format hackernews-score-format score)
-                                       'font-lock-face 'hackernews-score))
+                                       'face 'hackernews-score))
                     (?t . ,(hackernews--button-string
                             'hackernews-link
                             (format hackernews-title-format title)
@@ -805,9 +805,9 @@ faces, and visual separators for improved readability."
     (insert "\n")
 
     ;; Score, comments button, and author info
-    (insert (propertize "  " 'font-lock-face 'default))
+    (insert (propertize "  " 'face 'default))
     (insert (propertize (format "↑%d" (or score 0))
-                        'font-lock-face 'hackernews-score-modern))
+                        'face 'hackernews-score-modern))
     (insert " | ")
 
     ;; Comments as clickable button
@@ -823,7 +823,7 @@ faces, and visual separators for improved readability."
     ;; Author
     (when by
       (insert " | by ")
-      (insert (propertize by 'font-lock-face 'hackernews-author)))
+      (insert (propertize by 'face 'hackernews-author)))
 
     (insert "\n")
     (hackernews--insert-separator)
@@ -895,10 +895,15 @@ The rendering style is determined by `hackernews-ui-style'."
       (hackernews-previous-item nitem)))
 
     ;; Persist new offset
-    (setcar reg (+ (car reg) nitem)))
+    (setcar reg (+ (car reg) nitem))
 
-  (pop-to-buffer (current-buffer) '(() (category . hackernews)))
-  (run-hooks 'hackernews-finalize-hook))
+    ;; Display buffer with appropriate action based on UI style
+    (if is-modern
+        ;; Modern UI: occupy full window
+        (pop-to-buffer (current-buffer) '((display-buffer-same-window)))
+      ;; Classic UI: default behavior (partial window)
+      (pop-to-buffer (current-buffer) '(() (category . hackernews))))
+    (run-hooks 'hackernews-finalize-hook)))
 
 
 ;; TODO: Derive from `tabulated-list-mode'?
