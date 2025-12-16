@@ -124,6 +124,39 @@ slows down startup):
 (require 'hackernews)
 ```
 
+## Configuration Examples
+
+### Classic Mode (Default)
+
+The classic mode provides a minimal, text-based interface with no additional configuration needed:
+
+```el
+(use-package hackernews
+  :ensure t)
+```
+
+### Modern Mode with Visual Enhancements
+
+The modern mode offers an enhanced interface with widgets, colors, and centered content:
+
+```el
+;; Install visual-fill-column for centered display
+(use-package visual-fill-column
+  :ensure t)
+
+;; Configure hackernews with modern UI
+(use-package hackernews
+  :ensure t
+  :config
+  ;; Use modern UI with enhanced visual elements
+  (setq hackernews-ui-style 'modern)
+  ;; Enable emoji icons in the interface
+  (setq hackernews-enable-emojis t)
+  ;; Optional: customize display width (default 80)
+  ;; (setq hackernews-display-width 100)
+  )
+```
+
 ## Usage
 
 Just run <kbd>M-x</kbd>`hackernews`<kbd>RET</kbd>.  This reads the
@@ -145,27 +178,26 @@ by adding the following to your `user-init-file`:
 You can list and modify all custom faces and variables by typing
 <kbd>M-x</kbd>`customize-group`<kbd>RET</kbd>`hackernews`<kbd>RET</kbd>.
 
-The new widget-based interface includes several customization options:
+Key customization options:
+
+- `hackernews-ui-style` (default `'classic`): Choose between
+  `'classic` (minimal text-based interface) or `'modern` (enhanced
+  widget-based interface with colors and visual separators).
 
 - `hackernews-display-width` (default 80): Maximum width for
-  displaying content.  Adjust this to control how wide the story list
-  appears.
-
-- `hackernews-enable-visual-fill-column` (default t): Whether to
-  enable `visual-fill-column-mode` for centered display.  Requires
-  the
+  displaying content in modern mode.  Content is automatically
+  centered when
   [`visual-fill-column`](https://github.com/joostkremers/visual-fill-column)
-  package to be installed.  This provides a more polished, centered
-  reading experience.
+  is installed.
 
 - `hackernews-enable-emojis` (default nil): Whether to display emojis
-  in the interface.  When non-nil, feed navigation buttons (Top, New,
-  Best, Ask, Show) and comment counts will include emoji icons for
-  visual enhancement.
+  in the modern interface.  When non-nil, feed navigation buttons
+  (Top, New, Best, Ask, Show) and comment counts will include emoji
+  icons for visual enhancement.
 
-All `hackernews` buffers are displayed using the `switch-to-buffer`
-function, which replaces the current window's buffer.  This provides a
-full-screen experience for reading stories.
+In modern mode, buffers are displayed using `display-buffer-same-window`
+for a full-screen experience.  Classic mode uses the traditional display
+behavior.
 
 ### Troubleshooting
 
