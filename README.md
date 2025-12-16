@@ -15,8 +15,8 @@ from six different Hacker News feeds, namely top, new, best, ask, show
 and job stories.  The default feed is top stories, which corresponds
 to the Hacker News homepage.
 
-The interface features a modern, widget-based design inspired by
-Lobsters.  Each story is displayed with a clickable title widget,
+The interface features a modern, widget-based design.  Each story is
+displayed with a clickable title widget,
 followed by metadata (score, comments count, and author) in styled
 text with color coding.  Interactive buttons for accessing comments
 and external links are provided for each story, and stories are

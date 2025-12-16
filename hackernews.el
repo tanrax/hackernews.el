@@ -998,7 +998,7 @@ rendered at the end of the hackernews buffer."
 
     (with-current-buffer (get-buffer-create (format "*hackernews %s*" name))
       (unless append
-        ;; Kill local variables BEFORE disabling read-only (like Lobsters)
+        ;; Kill local variables BEFORE disabling read-only
         (kill-all-local-variables)
 
         ;; Temporarily disable read-only mode
