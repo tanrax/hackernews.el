@@ -506,63 +506,42 @@ This is intended as an :annotation-function in
 N defaults to 1."
   (declare (modes hackernews-mode))
   (interactive "p")
-  (let ((count (or n 1)))
-    (if (< count 0)
-        (hackernews-previous-item (- count))
-      (dotimes (_ count)
-        (if (eq hackernews-ui-style 'modern)
-            ;; Modern UI: search for separator lines
+  (if (eq hackernews-ui-style 'modern)
+      ;; Modern UI: search for separator lines
+      (let ((count (or n 1)))
+        (if (< count 0)
+            (hackernews-previous-item (- count))
+          (dotimes (_ count)
             (let ((separator-regex (concat "^" (regexp-quote (hackernews--string-separator)) "$")))
               (if (search-forward-regexp separator-regex nil t)
                   (progn
                     (forward-line 2)  ; Skip blank line to reach title
                     (beginning-of-line)
                     (recenter))  ; Center cursor vertically
-                (message "No more stories")))
-          ;; Classic UI: use text properties
-          (let* ((current-id (get-text-property (point) 'hackernews-item-id))
-                 (pos (point)))
-            (when current-id
-              (setq pos (or (next-single-property-change pos 'hackernews-item-id)
-                            (point-max))))
-            (setq pos (next-single-property-change pos 'hackernews-item-id))
-            (if pos
-                (goto-char pos)
-              (message "No more stories"))))))))
+                (message "No more stories"))))))
+    ;; Classic UI: use original button navigation
+    (hackernews--forward-button (or n 1) 'hackernews-link)))
 
 (defun hackernews-previous-item (&optional n)
   "Move to Nth previous story (next if N is negative).
 N defaults to 1."
   (declare (modes hackernews-mode))
   (interactive "p")
-  (let ((count (or n 1)))
-    (if (< count 0)
-        (hackernews-next-item (- count))
-      (dotimes (_ count)
-        (if (eq hackernews-ui-style 'modern)
-            ;; Modern UI: search for separator lines
+  (if (eq hackernews-ui-style 'modern)
+      ;; Modern UI: search for separator lines
+      (let ((count (or n 1)))
+        (if (< count 0)
+            (hackernews-next-item (- count))
+          (dotimes (_ count)
             (let ((separator-regex (concat "^" (regexp-quote (hackernews--string-separator)) "$")))
               (search-backward-regexp separator-regex nil t)
               (unless (search-backward-regexp separator-regex nil t)
                 (goto-char (point-min)))
               (forward-line 2)  ; Skip blank line to reach title
               (beginning-of-line)
-              (recenter))  ; Center cursor vertically
-          ;; Classic UI: use text properties
-          (let* ((current-id (get-text-property (point) 'hackernews-item-id))
-                 (pos (point)))
-            (when current-id
-              (setq pos (or (previous-single-property-change pos 'hackernews-item-id)
-                            (point-min)))
-              (when (and pos (equal (get-text-property pos 'hackernews-item-id) current-id))
-                (setq pos (previous-single-property-change pos 'hackernews-item-id))))
-            (unless (and current-id (> pos (point-min)))
-              (setq pos (previous-single-property-change pos 'hackernews-item-id)))
-            (if (and pos (> pos (point-min)))
-                (goto-char pos)
-              (message "No previous stories")
-              (goto-char (point-min))
-              (hackernews-next-item))))))))
+              (recenter)))))  ; Center cursor vertically
+    ;; Classic UI: use original button navigation (reverse direction)
+    (hackernews-next-item (- (or n 1)))))
 
 (defun hackernews-first-item ()
   "Move point to first story link in hackernews buffer."
