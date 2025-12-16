@@ -5,7 +5,7 @@
 ;; Author: Lincoln de Sousa <lincoln@clarete.li>
 ;; Maintainer: Basil L. Contovounesios <basil@contovou.net>
 ;; Keywords: comm hypermedia news
-;; Version: 0.9.0
+;; Version: 0.8.0
 ;; Package-Requires: ((emacs "24.3") (visual-fill-column "2.2"))
 ;; URL: https://github.com/clarete/hackernews.el
 
