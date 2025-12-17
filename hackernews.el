@@ -829,18 +829,24 @@ The rendering style is determined by `hackernews-ui-style'."
     (when (and is-first-load is-modern)
       (hackernews--insert-header feed-name))
 
-    ;; Render items (filter out null items from deleted/dead stories)
+    ;; Render items (filter out null, deleted, and dead items)
     (run-hooks 'hackernews-before-render-hook)
     (save-excursion
       (goto-char (point-max))
       (mapc #'hackernews--render-item
-            (cl-remove-if (lambda (item) (eq item :null)) items)))
+            (cl-remove-if (lambda (item)
+                            (or (eq item :null)
+                                (cdr (assq 'deleted item))
+                                (cdr (assq 'dead item))))
+                          items)))
     (run-hooks 'hackernews-after-render-hook)
 
     ;; Setup widgets for modern UI
     (when is-modern
-      ;; Set widget-keymap as parent for proper widget interaction in read-only buffer
-      (set-keymap-parent hackernews-mode-map widget-keymap)
+      ;; Create a composed keymap that combines widget functionality with mode bindings
+      ;; Priority: widget-keymap (for widget navigation) > hackernews-mode-map > special-mode-map
+      (use-local-map (make-composed-keymap (list widget-keymap hackernews-mode-map)
+                                            special-mode-map))
       (widget-setup))
 
     ;; Enable visual-fill-column for modern UI
