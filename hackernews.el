@@ -829,11 +829,12 @@ The rendering style is determined by `hackernews-ui-style'."
     (when (and is-first-load is-modern)
       (hackernews--insert-header feed-name))
 
-    ;; Render items
+    ;; Render items (filter out null items from deleted/dead stories)
     (run-hooks 'hackernews-before-render-hook)
     (save-excursion
       (goto-char (point-max))
-      (mapc #'hackernews--render-item items))
+      (mapc #'hackernews--render-item
+            (cl-remove-if (lambda (item) (eq item :null)) items)))
     (run-hooks 'hackernews-after-render-hook)
 
     ;; Setup widgets for modern UI
