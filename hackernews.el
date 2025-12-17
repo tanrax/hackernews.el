@@ -787,6 +787,7 @@ faces, and visual separators for improved readability."
                    :notify (lambda (&rest _)
                              (browse-url comments-url))
                    :help-echo (format "View comments: %s" comments-url)
+                   :format "%[%v%]"
                    (format "%s%d comment%s"
                            (if hackernews-enable-emojis "💬 " "")
                            (or descendants 0)
