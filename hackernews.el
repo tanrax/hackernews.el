@@ -836,9 +836,6 @@ The rendering style is determined by `hackernews-ui-style'."
       (mapc #'hackernews--render-item items))
     (run-hooks 'hackernews-after-render-hook)
 
-    ;; Activate hackernews-mode
-    (hackernews-mode)
-
     ;; Setup widgets for modern UI
     (when is-modern
       ;; Set widget-keymap as parent for proper widget interaction in read-only buffer
@@ -998,16 +995,13 @@ rendered at the end of the hackernews buffer."
 
     (with-current-buffer (get-buffer-create (format "*hackernews %s*" name))
       (unless append
-        ;; Kill local variables BEFORE disabling read-only
-        (kill-all-local-variables)
-
-        ;; Temporarily disable read-only mode
-        (read-only-mode -1)
-
         ;; Clear buffer
         (let ((inhibit-read-only t))
           (erase-buffer))
-        (remove-overlays))
+        (remove-overlays)
+
+        ;; Activate hackernews-mode (which calls kill-all-local-variables)
+        (hackernews-mode))
 
       (hackernews--put :feed     feed)
       (hackernews--put :register (cons offset ids))
